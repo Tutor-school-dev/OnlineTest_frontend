@@ -7,6 +7,8 @@ import TakeTest from './pages/user/TakeTest'
 import AdminLogin from './pages/admin/AdminLogin'
 import AdminTests from './pages/admin/AdminTests'
 import AdminTestDetail from './pages/admin/AdminTestDetail'
+import AdminAttempts from './pages/admin/AdminAttempts'
+import AdminAttemptDetail from './pages/admin/AdminAttemptDetail'
 import AdminRoute from './router/AdminRoute'
 
 function AnimatedRoutes() {
@@ -20,6 +22,8 @@ function AnimatedRoutes() {
         <Route path='/admin/login' element={<AdminLogin />} />
         <Route path='/admin' element={<AdminRoute><AdminTests /></AdminRoute>} />
         <Route path='/admin/test/:testId' element={<AdminRoute><AdminTestDetail /></AdminRoute>} />
+        <Route path='/admin/test/:testId/attempts' element={<AdminRoute><AdminAttempts /></AdminRoute>} />
+        <Route path='/admin/attempts/:attemptId' element={<AdminRoute><AdminAttemptDetail /></AdminRoute>} />
       </Routes>
     </AnimatePresence>
   )

@@ -2,6 +2,7 @@ import { api } from './client'
 import { adminApi } from './admin-client'
 import type { TestsResponse } from '../types/test'
 import type { QuestionsResponse } from '../types/question'
+import type { AttemptsResponse, AttemptDetailsResponse } from '../types/attempt'
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,22 @@ export interface AddQuestionPayload {
 
 export async function addQuestion(payload: AddQuestionPayload): Promise<{ message: string }> {
   const { data } = await adminApi.post<{ message: string }>('/admin/online-test/questions', payload)
+  return data
+}
+
+// ── Attempts ──────────────────────────────────────────────────────────────────
+
+export async function fetchAttempts(testId: string): Promise<AttemptsResponse> {
+  const { data } = await adminApi.get<AttemptsResponse>(
+    `/admin/online-test/attempts?ta_test_id=${testId}`
+  )
+  return data
+}
+
+export async function fetchAttemptDetails(attemptId: string): Promise<AttemptDetailsResponse> {
+  const { data } = await adminApi.get<AttemptDetailsResponse>(
+    `/admin/online-test/attempts/details?tad_attempt_id=${attemptId}`
+  )
   return data
 }
 

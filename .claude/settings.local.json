@@ -4,7 +4,8 @@
       "Bash(npm install *)",
       "Bash(npx tsc *)",
       "Bash(node -e \"require\\('./node_modules/framer-motion/package.json'\\)\")",
-      "Bash(node -e \"['react-router-dom','sonner','axios'].forEach\\(p => { try { require\\('./node_modules/'+p+'/package.json'\\); console.log\\(p+': ok'\\) } catch { console.log\\(p+': MISSING'\\) } }\\)\")"
+      "Bash(node -e \"['react-router-dom','sonner','axios'].forEach\\(p => { try { require\\('./node_modules/'+p+'/package.json'\\); console.log\\(p+': ok'\\) } catch { console.log\\(p+': MISSING'\\) } }\\)\")",
+      "Bash(xargs grep *)"
     ]
   }
 }

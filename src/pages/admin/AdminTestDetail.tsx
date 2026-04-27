@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Eye, Trash2, Plus, X, Check, Search,
-  ChevronLeft, ChevronRight, BookOpen, Loader2,
+  ChevronLeft, ChevronRight, BookOpen, Loader2, Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -654,13 +654,22 @@ export default function AdminTestDetail() {
             </div>
           )}
 
-          <button
-            onClick={() => setShowAdd(true)}
-            className="ml-auto shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-700 hover:to-emerald-600 shadow-sm transition"
-          >
-            <Plus className="w-4 h-4" />
-            Add Question
-          </button>
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate(`/admin/test/${testId}/attempts`, { state: { test } })}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition"
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Attempts</span>
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-700 hover:to-emerald-600 shadow-sm transition"
+            >
+              <Plus className="w-4 h-4" />
+              Add Question
+            </button>
+          </div>
         </div>
       </header>
 
