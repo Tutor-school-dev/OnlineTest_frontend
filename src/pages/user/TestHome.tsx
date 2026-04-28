@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useCookies } from 'react-cookie'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Clock, BookOpen, Search, ChevronRight, GraduationCap } from 'lucide-react'
+import { Clock, BookOpen, Search, ChevronRight, GraduationCap, LogOut } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTests } from '@/hooks/useTests'
+import { useUserAuthStore } from '@/stores/user-auth.store'
 import type { Test, TestStatus } from '@/types/test'
 
 const STATUS_FILTERS = ['ALL', 'ACTIVE', 'PENDING', 'DONE', 'INACTIVE'] as const
@@ -109,6 +111,15 @@ function TestCard({ test, index }: { test: Test; index: number }) {
 export default function TestHome() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+  const navigate = useNavigate()
+  const [, , removeCookie] = useCookies(['auth_token'])
+  const { userName, userPicture, clearAuth } = useUserAuthStore()
+
+  const handleLogout = () => {
+    removeCookie('auth_token', { path: '/' })
+    clearAuth()
+    navigate('/', { replace: true })
+  }
 
   const { data, isLoading, isError } = useTests()
 
@@ -149,6 +160,31 @@ export default function TestHome() {
               placeholder="Search tests…"
               className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
             />
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {userPicture ? (
+              <img
+                src={userPicture}
+                alt={userName ?? ''}
+                className="w-8 h-8 rounded-full border-2 border-slate-200 object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">
+                {(userName ?? 'U')[0].toUpperCase()}
+              </div>
+            )}
+            <span className="hidden sm:block text-sm font-medium text-slate-700 max-w-[100px] truncate">
+              {userName}
+            </span>
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 transition-all"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           </div>
         </div>
       </header>

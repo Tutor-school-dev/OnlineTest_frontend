@@ -12,11 +12,9 @@ import {
 } from '@/components/ui/accordion'
 import { useQuestions } from '@/hooks/useQuestions'
 import { submitTest } from '@/api/tests.api'
+import { useUserAuthStore } from '@/stores/user-auth.store'
 import type { Test } from '@/types/test'
 import type { Question, QuestionOption } from '@/types/question'
-
-const USER_ID = '3f8f3c8e-6d2a-4b7f-9e5c-2d9a7f1c4e21'
-const USER_NAME = 'Madan'
 
 // ─── Timer ───────────────────────────────────────────────────────────────────
 
@@ -312,6 +310,8 @@ export default function TakeTest() {
   const location = useLocation()
   const navigate = useNavigate()
   const test = location.state?.test as Test | undefined
+  const userId = useUserAuthStore(s => s.userId) ?? ''
+  const userName = useUserAuthStore(s => s.userName) ?? ''
 
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
@@ -347,8 +347,8 @@ export default function TakeTest() {
     setConfirming(false)
     mutation.mutate({
       test_id: testId!,
-      user_id: USER_ID,
-      user_name: USER_NAME,
+      user_id: userId,
+      user_name: userName,
       time_taken: totalSeconds - remainingRef.current,
       answers,
     })
@@ -373,7 +373,7 @@ export default function TakeTest() {
 
   // Redirect if test data missing (direct URL access)
   useEffect(() => {
-    if (!test) navigate('/', { replace: true })
+    if (!test) navigate('/test', { replace: true })
   }, [test, navigate])
 
   const setAnswer = (qId: string, oId: string) =>
@@ -595,14 +595,14 @@ export default function TakeTest() {
         )}
         {mutation.isPending && <SubmittingOverlay key="submitting" />}
         {mutation.isSuccess && (
-          <SuccessOverlay key="success" onBack={() => navigate('/', { replace: true })} />
+          <SuccessOverlay key="success" onBack={() => navigate('/test', { replace: true })} />
         )}
         {mutation.isError && (
           <ErrorOverlay
             key="error"
             message={(mutation.error as Error)?.message ?? 'Something went wrong. Please try again.'}
             onRetry={triggerSubmit}
-            onBack={() => navigate('/', { replace: true })}
+            onBack={() => navigate('/test', { replace: true })}
           />
         )}
       </AnimatePresence>
