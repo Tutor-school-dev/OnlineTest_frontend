@@ -20,6 +20,7 @@ export interface Question {
   qb_updated_at: string
   qb_parent: string | null
   qb_analysis_status: string
+  qb_dag_id: string | null
   options: QuestionOption[]
 }
 

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Eye, Trash2, Plus, X, Check, Search,
-  ChevronLeft, ChevronRight, BookOpen, Loader2, Users,
+  ChevronLeft, ChevronRight, BookOpen, Loader2, Users, GitBranch,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -13,6 +13,7 @@ import { addQuestion, removeQuestion, fetchAdminQuestions } from '@/api/admin.ap
 import type { Test } from '@/types/test'
 import type { Question, QuestionOption } from '@/types/question'
 import type { AddQuestionItem } from '@/api/admin.api'
+import { GraphModal } from '@/components/GraphModal'
 
 const ITEMS_PER_PAGE = 10
 
@@ -574,6 +575,7 @@ export default function AdminTestDetail() {
   const [showAdd, setShowAdd] = useState(false)
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null)
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set())
+  const [graphTarget, setGraphTarget] = useState<{ dagId: string; title: string } | null>(null)
 
   const { data, isLoading, isError } = useAdminQuestions(testId ?? '')
   const allQuestions = data?.data ?? []
@@ -696,7 +698,7 @@ export default function AdminTestDetail() {
         {/* Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-[2rem_1fr_6rem_10rem_8rem_5.5rem] gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <div className="grid grid-cols-[2rem_1fr_6rem_10rem_8rem_7rem] gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
             <span>#</span>
             <span>Title</span>
             <span>Type</span>
@@ -732,7 +734,7 @@ export default function AdminTestDetail() {
                     transition={{ duration: 0.18 }}
                   >
                     {/* ── Parent row ── */}
-                    <div className={`grid grid-cols-[2rem_1fr_6rem_10rem_8rem_5.5rem] gap-3 items-center px-4 py-3 border-b border-slate-100 text-sm transition-colors ${
+                    <div className={`grid grid-cols-[2rem_1fr_6rem_10rem_8rem_7rem] gap-3 items-center px-4 py-3 border-b border-slate-100 text-sm transition-colors ${
                       isRemoving ? 'bg-red-50' : 'hover:bg-blue-50/30'
                     }`}>
                       {/* # */}
@@ -797,6 +799,15 @@ export default function AdminTestDetail() {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+                            {q.qb_dag_id && (
+                              <button
+                                onClick={() => setGraphTarget({ dagId: q.qb_dag_id!, title: q.qb_title })}
+                                title="View reasoning graph"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition"
+                              >
+                                <GitBranch className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => setPendingRemoveId(q.qb_id)}
                               title="Remove question"
@@ -822,7 +833,7 @@ export default function AdminTestDetail() {
                             transition={{ duration: 0.2 }}
                             className="overflow-hidden"
                           >
-                            <div className={`grid grid-cols-[2rem_1fr_6rem_10rem_8rem_5.5rem] gap-3 items-center px-4 py-2.5 border-b border-slate-100 text-sm transition-colors ${
+                            <div className={`grid grid-cols-[2rem_1fr_6rem_10rem_8rem_7rem] gap-3 items-center px-4 py-2.5 border-b border-slate-100 text-sm transition-colors ${
                               subRemoving ? 'bg-red-50' : 'bg-violet-50/40 hover:bg-violet-50/70'
                             }`}>
                               {/* ↳ index */}
@@ -873,6 +884,15 @@ export default function AdminTestDetail() {
                                     >
                                       <Eye className="w-4 h-4" />
                                     </button>
+                                    {sub.qb_dag_id && (
+                                      <button
+                                        onClick={() => setGraphTarget({ dagId: sub.qb_dag_id!, title: sub.qb_title })}
+                                        title="View reasoning graph"
+                                        className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition"
+                                      >
+                                        <GitBranch className="w-4 h-4" />
+                                      </button>
+                                    )}
                                     <button
                                       onClick={() => setPendingRemoveId(sub.qb_id)}
                                       title="Remove follow-up"
@@ -922,6 +942,14 @@ export default function AdminTestDetail() {
               setShowAdd(false)
               queryClient.invalidateQueries({ queryKey: ['admin-questions', testId] })
             }}
+          />
+        )}
+        {graphTarget && (
+          <GraphModal
+            key="graph"
+            dagId={graphTarget.dagId}
+            questionTitle={graphTarget.title}
+            onClose={() => setGraphTarget(null)}
           />
         )}
       </AnimatePresence>

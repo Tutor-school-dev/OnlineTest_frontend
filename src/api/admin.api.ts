@@ -3,6 +3,7 @@ import { adminApi } from './admin-client'
 import type { TestsResponse } from '../types/test'
 import type { QuestionsResponse } from '../types/question'
 import type { AttemptsResponse, AttemptDetailsResponse } from '../types/attempt'
+import type { DagResponse } from '../types/dag'
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -82,5 +83,12 @@ export async function removeQuestion(testId: string, questionId: string): Promis
   const { data } = await adminApi.delete<{ message: string }>(
     `/admin/online-test/questions?test_id=${testId}&question_id=${questionId}`
   )
+  return data
+}
+
+// ── DAG ───────────────────────────────────────────────────────────────────────
+
+export async function fetchDag(dagId: string): Promise<DagResponse> {
+  const { data } = await adminApi.get<DagResponse>(`/admin/dag/?dag_id=${dagId}`)
   return data
 }
