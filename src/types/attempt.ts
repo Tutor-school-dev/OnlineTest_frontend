@@ -30,6 +30,7 @@ export interface AttemptDetail {
   tad_marks_obtained: number
   tad_is_correct: boolean
   tad_answer: string | null
+  tad_dag_id: string | null
 }
 
 export interface AttemptDetailsResponse {

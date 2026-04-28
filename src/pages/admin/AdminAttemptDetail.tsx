@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Check, X, Minus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Check, X, Minus, ChevronLeft, ChevronRight, GitBranch } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAttemptDetails } from '@/hooks/useAttemptDetails'
 import type { Test } from '@/types/test'
 import type { TestAttempt, AttemptDetail } from '@/types/attempt'
 import type { Question, QuestionOption } from '@/types/question'
+import { GraphModal } from '@/components/GraphModal'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -88,11 +89,13 @@ function QuestionBlock({
   detail,
   label,
   variant,
+  onViewGraph,
 }: {
   question: Question
   detail: AttemptDetail | undefined
   label: string
   variant: 'parent' | 'followup'
+  onViewGraph?: (dagId: string, title: string) => void
 }) {
   const userAnswerIds = useMemo(
     () => (detail?.tad_answer ? detail.tad_answer.split(',').map(s => s.trim()) : []),
@@ -123,6 +126,16 @@ function QuestionBlock({
             <span className="text-xs text-slate-500 font-medium">
               {detail.tad_marks_obtained}/{detail.tad_total_marks} marks
             </span>
+          )}
+          {detail?.tad_dag_id && onViewGraph && (
+            <button
+              onClick={() => onViewGraph(detail.tad_dag_id!, question.qb_title)}
+              title="View user's thought process"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition"
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+              Thought Process
+            </button>
           )}
         </div>
       </div>
@@ -170,10 +183,12 @@ function QuestionGroupCard({
   parent,
   subs,
   detailMap,
+  onViewGraph,
 }: {
   parent: Question
   subs: Question[]
   detailMap: Map<string, AttemptDetail>
+  onViewGraph: (dagId: string, title: string) => void
 }) {
   const [open, setOpen] = useState(false)
 
@@ -186,6 +201,7 @@ function QuestionGroupCard({
           detail={detailMap.get(parent.qb_id)}
           label="Parent Question"
           variant="parent"
+          onViewGraph={onViewGraph}
         />
       </div>
 
@@ -227,6 +243,7 @@ function QuestionGroupCard({
                         detail={detailMap.get(sub.qb_id)}
                         label={`Follow-up ${i + 1}`}
                         variant="followup"
+                        onViewGraph={onViewGraph}
                       />
                     </div>
                   ))}
@@ -315,6 +332,7 @@ export default function AdminAttemptDetail() {
   const testId = location.state?.testId as string | undefined
 
   const [page, setPage] = useState(1)
+  const [graphTarget, setGraphTarget] = useState<{ dagId: string; title: string } | null>(null)
 
   const { data, isLoading, isError } = useAttemptDetails(attemptId ?? '')
 
@@ -428,6 +446,7 @@ export default function AdminAttemptDetail() {
                   parent={parent}
                   subs={subsMap.get(parent.qb_id) ?? []}
                   detailMap={detailMap}
+                  onViewGraph={(dagId, title) => setGraphTarget({ dagId, title })}
                 />
               ))}
             </div>
@@ -439,6 +458,17 @@ export default function AdminAttemptDetail() {
           </>
         )}
       </main>
+
+      <AnimatePresence>
+        {graphTarget && (
+          <GraphModal
+            key="user-graph"
+            dagId={graphTarget.dagId}
+            questionTitle={graphTarget.title}
+            onClose={() => setGraphTarget(null)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
