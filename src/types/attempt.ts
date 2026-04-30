@@ -31,6 +31,7 @@ export interface AttemptDetail {
   tad_is_correct: boolean
   tad_answer: string | null
   tad_dag_id: string | null
+  tad_gap_analysis: string | null
 }
 
 export interface AttemptDetailsResponse {

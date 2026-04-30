@@ -92,3 +92,24 @@ export async function fetchDag(dagId: string): Promise<DagResponse> {
   const { data } = await adminApi.get<DagResponse>(`/admin/dag/?dag_id=${dagId}`)
   return data
 }
+
+// ── Gap Analysis ──────────────────────────────────────────────────────────────
+
+export interface GapAnalysisApiItem {
+  ga_id: string
+  node_gaps: string  // JSON-encoded array
+  topics: string     // JSON-encoded array
+  pitfalls: string   // JSON-encoded array
+  mastery: number
+  signal: string
+}
+
+export interface GapAnalysisApiResponse {
+  message: string
+  data: GapAnalysisApiItem[]
+}
+
+export async function fetchGapAnalysis(gapId: string): Promise<GapAnalysisApiResponse> {
+  const { data } = await adminApi.get<GapAnalysisApiResponse>(`/admin/gap/?gap_id=${gapId}`)
+  return data
+}

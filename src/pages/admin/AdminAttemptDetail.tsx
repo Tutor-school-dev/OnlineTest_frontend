@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Check, X, Minus, ChevronLeft, ChevronRight, GitBranch } from 'lucide-react'
+import { ArrowLeft, Check, X, Minus, ChevronLeft, ChevronRight, GitBranch, BookOpen, BarChart2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAttemptDetails } from '@/hooks/useAttemptDetails'
 import type { Test } from '@/types/test'
 import type { TestAttempt, AttemptDetail } from '@/types/attempt'
 import type { Question, QuestionOption } from '@/types/question'
-import { GraphModal } from '@/components/GraphModal'
+import { GraphModal, type AnalysisTarget, type AnalysisTab } from '@/components/GraphModal'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ const typeBadge: Record<string, string> = {
   INPUT:    'bg-slate-100 text-slate-600',
 }
 
-// ─── Summary cards ─────────────────────────────────────────────────────────────
+// ─── Summary card ─────────────────────────────────────────────────────────────
 
 function SummaryCard({ label, value, sub, accent }: {
   label: string; value: string; sub?: string; accent: string
@@ -89,13 +89,13 @@ function QuestionBlock({
   detail,
   label,
   variant,
-  onViewGraph,
+  onOpenAnalysis,
 }: {
   question: Question
   detail: AttemptDetail | undefined
   label: string
   variant: 'parent' | 'followup'
-  onViewGraph?: (dagId: string, title: string) => void
+  onOpenAnalysis?: (target: AnalysisTarget) => void
 }) {
   const userAnswerIds = useMemo(
     () => (detail?.tad_answer ? detail.tad_answer.split(',').map(s => s.trim()) : []),
@@ -110,6 +110,21 @@ function QuestionBlock({
     ? <span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><Check className="w-3.5 h-3.5" />Correct</span>
     : <span className="flex items-center gap-1 text-xs font-medium text-red-500"><X className="w-3.5 h-3.5" />Incorrect</span>
 
+  const hasUserDag = !!detail?.tad_dag_id
+  const hasQuestionDag = !!question.qb_dag_id
+  const gapId = detail?.tad_gap_analysis ?? null
+  const gapReady = !!gapId
+
+  const openModal = (defaultTab: AnalysisTab) => {
+    onOpenAnalysis?.({
+      userDagId:    detail?.tad_dag_id,
+      questionDagId: question.qb_dag_id,
+      gapId,
+      title:       question.qb_title,
+      defaultTab,
+    })
+  }
+
   return (
     <div className="space-y-3">
       {/* Question header */}
@@ -120,21 +135,46 @@ function QuestionBlock({
             {question.qb_type}
           </span>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           {statusIcon}
           {detail && (
             <span className="text-xs text-slate-500 font-medium">
               {detail.tad_marks_obtained}/{detail.tad_total_marks} marks
             </span>
           )}
-          {detail?.tad_dag_id && onViewGraph && (
+          {hasUserDag && onOpenAnalysis && (
             <button
-              onClick={() => onViewGraph(detail.tad_dag_id!, question.qb_title)}
+              onClick={() => openModal('user')}
               title="View user's thought process"
               className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition"
             >
               <GitBranch className="w-3.5 h-3.5" />
-              Thought Process
+              User Chain
+            </button>
+          )}
+          {hasQuestionDag && onOpenAnalysis && (
+            <button
+              onClick={() => openModal('question')}
+              title="View ideal thought chain for this question"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Question Chain
+            </button>
+          )}
+          {detail && onOpenAnalysis && (
+            <button
+              onClick={() => openModal('gap')}
+              title={gapReady ? 'View gap analysis' : 'AI gap analysis pending'}
+              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition ${
+                gapReady
+                  ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50'
+                  : 'text-slate-400 hover:text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              <BarChart2 className="w-3.5 h-3.5" />
+              Gap Analysis
+              {!gapReady && <span className="text-[10px] opacity-60">·pending</span>}
             </button>
           )}
         </div>
@@ -183,29 +223,27 @@ function QuestionGroupCard({
   parent,
   subs,
   detailMap,
-  onViewGraph,
+  onOpenAnalysis,
 }: {
   parent: Question
   subs: Question[]
   detailMap: Map<string, AttemptDetail>
-  onViewGraph: (dagId: string, title: string) => void
+  onOpenAnalysis: (target: AnalysisTarget) => void
 }) {
   const [open, setOpen] = useState(false)
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      {/* Parent */}
       <div className="px-5 py-4">
         <QuestionBlock
           question={parent}
           detail={detailMap.get(parent.qb_id)}
           label="Parent Question"
           variant="parent"
-          onViewGraph={onViewGraph}
+          onOpenAnalysis={onOpenAnalysis}
         />
       </div>
 
-      {/* Accordion toggle — only when there are sub-questions */}
       {subs.length > 0 && (
         <>
           <button
@@ -214,16 +252,10 @@ function QuestionGroupCard({
           >
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-3.5 rounded-full bg-gradient-to-b from-violet-500 to-blue-400 shrink-0" />
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Follow-up Questions
-              </span>
-              <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600">
-                {subs.length}
-              </span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Follow-up Questions</span>
+              <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600">{subs.length}</span>
             </div>
-            <ChevronRight
-              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
-            />
+            <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
           </button>
 
           <AnimatePresence initial={false}>
@@ -243,7 +275,7 @@ function QuestionGroupCard({
                         detail={detailMap.get(sub.qb_id)}
                         label={`Follow-up ${i + 1}`}
                         variant="followup"
-                        onViewGraph={onViewGraph}
+                        onOpenAnalysis={onOpenAnalysis}
                       />
                     </div>
                   ))}
@@ -332,7 +364,7 @@ export default function AdminAttemptDetail() {
   const testId = location.state?.testId as string | undefined
 
   const [page, setPage] = useState(1)
-  const [graphTarget, setGraphTarget] = useState<{ dagId: string; title: string } | null>(null)
+  const [analysisTarget, setAnalysisTarget] = useState<AnalysisTarget | null>(null)
 
   const { data, isLoading, isError } = useAttemptDetails(attemptId ?? '')
 
@@ -353,7 +385,6 @@ export default function AdminAttemptDetail() {
     })
 
     const parentQuestions = qbs.filter(q => q.qb_parent === null)
-
     return { detailMap, parentQuestions, subsMap }
   }, [data])
 
@@ -383,9 +414,7 @@ export default function AdminAttemptDetail() {
           </button>
           <div className="min-w-0">
             <p className="text-xs text-slate-400 leading-none truncate">{test?.ot_name ?? 'Test'}</p>
-            <p className="text-sm font-semibold text-slate-800">
-              {attempt?.ta_user_name ?? 'Attempt Detail'}
-            </p>
+            <p className="text-sm font-semibold text-slate-800">{attempt?.ta_user_name ?? 'Attempt Detail'}</p>
           </div>
           {attempt && (
             <span className="ml-auto shrink-0 text-xs text-slate-400">
@@ -446,7 +475,7 @@ export default function AdminAttemptDetail() {
                   parent={parent}
                   subs={subsMap.get(parent.qb_id) ?? []}
                   detailMap={detailMap}
-                  onViewGraph={(dagId, title) => setGraphTarget({ dagId, title })}
+                  onOpenAnalysis={setAnalysisTarget}
                 />
               ))}
             </div>
@@ -460,12 +489,11 @@ export default function AdminAttemptDetail() {
       </main>
 
       <AnimatePresence>
-        {graphTarget && (
+        {analysisTarget && (
           <GraphModal
-            key="user-graph"
-            dagId={graphTarget.dagId}
-            questionTitle={graphTarget.title}
-            onClose={() => setGraphTarget(null)}
+            key={`${analysisTarget.userDagId}-${analysisTarget.questionDagId}-${analysisTarget.gapId}`}
+            {...analysisTarget}
+            onClose={() => setAnalysisTarget(null)}
           />
         )}
       </AnimatePresence>
