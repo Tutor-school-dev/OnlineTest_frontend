@@ -575,7 +575,7 @@ export default function AdminTestDetail() {
   const [showAdd, setShowAdd] = useState(false)
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null)
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set())
-  const [graphTarget, setGraphTarget] = useState<{ dagId: string; title: string } | null>(null)
+  const [graphTarget, setGraphTarget] = useState<{ questionDagId: string; title: string } | null>(null)
 
   const { data, isLoading, isError } = useAdminQuestions(testId ?? '')
   const allQuestions = data?.data ?? []
@@ -801,7 +801,7 @@ export default function AdminTestDetail() {
                             </button>
                             {q.qb_dag_id && (
                               <button
-                                onClick={() => setGraphTarget({ dagId: q.qb_dag_id!, title: q.qb_title })}
+                                onClick={() => setGraphTarget({ questionDagId: q.qb_dag_id!, title: q.qb_title })}
                                 title="View reasoning graph"
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition"
                               >
@@ -886,7 +886,7 @@ export default function AdminTestDetail() {
                                     </button>
                                     {sub.qb_dag_id && (
                                       <button
-                                        onClick={() => setGraphTarget({ dagId: sub.qb_dag_id!, title: sub.qb_title })}
+                                        onClick={() => setGraphTarget({ questionDagId: sub.qb_dag_id!, title: sub.qb_title })}
                                         title="View reasoning graph"
                                         className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition"
                                       >
@@ -947,8 +947,9 @@ export default function AdminTestDetail() {
         {graphTarget && (
           <GraphModal
             key="graph"
-            dagId={graphTarget.dagId}
-            questionTitle={graphTarget.title}
+            questionDagId={graphTarget.questionDagId}
+            title={graphTarget.title}
+            defaultTab="question"
             onClose={() => setGraphTarget(null)}
           />
         )}
