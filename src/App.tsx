@@ -10,6 +10,7 @@ import AdminTests from './pages/admin/AdminTests'
 import AdminTestDetail from './pages/admin/AdminTestDetail'
 import AdminAttempts from './pages/admin/AdminAttempts'
 import AdminAttemptDetail from './pages/admin/AdminAttemptDetail'
+import AdminOverallResults from './pages/admin/AdminOverallResults'
 import AdminRoute from './router/AdminRoute'
 import UserRoute from './router/UserRoute'
 
@@ -27,6 +28,7 @@ function AnimatedRoutes() {
         <Route path='/admin/test/:testId' element={<AdminRoute><AdminTestDetail /></AdminRoute>} />
         <Route path='/admin/test/:testId/attempts' element={<AdminRoute><AdminAttempts /></AdminRoute>} />
         <Route path='/admin/attempts/:attemptId' element={<AdminRoute><AdminAttemptDetail /></AdminRoute>} />
+        <Route path='/admin/attempts/:attemptId/overall-results' element={<AdminRoute><AdminOverallResults /></AdminRoute>} />
       </Routes>
     </AnimatePresence>
   )

@@ -74,8 +74,8 @@ function OptionRow({ option, isUserAnswer, isCorrect }: {
         {option.qo_title}
       </span>
       <span className="shrink-0 text-xs">
-        {both && <span className="text-emerald-600">Your answer · Correct</span>}
-        {wrongAnswer && <span className="text-red-500">Your answer</span>}
+        {both && <span className="text-emerald-600">User answer · Correct</span>}
+        {wrongAnswer && <span className="text-red-500">User answer</span>}
         {!isUserAnswer && isCorrect && <span className="text-emerald-600">Correct answer</span>}
       </span>
     </div>
@@ -162,7 +162,7 @@ function QuestionBlock({
               Question Chain
             </button>
           )}
-          {detail && onOpenAnalysis && (
+          {detail && onOpenAnalysis && variant === 'parent' && (
             <button
               onClick={() => openModal('gap')}
               title={gapReady ? 'View gap analysis' : 'AI gap analysis pending'}

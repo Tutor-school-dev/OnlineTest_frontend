@@ -15,6 +15,7 @@ export interface TestAttempt {
   ta_total_correct_questions: number
   ta_marks_obtained: number
   ta_time_taken: number
+  ta_gap_analysis: string | null
 }
 
 export interface AttemptsResponse {

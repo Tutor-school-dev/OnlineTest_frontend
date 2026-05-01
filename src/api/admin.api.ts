@@ -3,7 +3,7 @@ import { adminApi } from './admin-client'
 import type { TestsResponse } from '../types/test'
 import type { QuestionsResponse } from '../types/question'
 import type { AttemptsResponse, AttemptDetailsResponse } from '../types/attempt'
-import type { DagResponse } from '../types/dag'
+import type { DagResponse, ReasoningNode } from '../types/dag'
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -111,5 +111,16 @@ export interface GapAnalysisApiResponse {
 
 export async function fetchGapAnalysis(gapId: string): Promise<GapAnalysisApiResponse> {
   const { data } = await adminApi.get<GapAnalysisApiResponse>(`/admin/gap/?gap_id=${gapId}`)
+  return data
+}
+
+// ── DAG Nodes ─────────────────────────────────────────────────────────────────
+
+export interface NodesResponse {
+  nodes: ReasoningNode[]
+}
+
+export async function fetchNodes(nodeIds: string): Promise<NodesResponse> {
+  const { data } = await adminApi.get<NodesResponse>(`/admin/dag/nodes?nodes=${encodeURIComponent(nodeIds)}`)
   return data
 }

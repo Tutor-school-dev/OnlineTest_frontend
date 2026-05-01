@@ -1,11 +1,17 @@
 import { useState, useMemo } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Users, Clock, TrendingUp, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import {
+  ArrowLeft, Users, Clock, TrendingUp,
+  ChevronLeft, ChevronRight, Search,
+  BarChart2, Hourglass,
+} from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAttempts } from '@/hooks/useAttempts'
 import type { Test } from '@/types/test'
 import type { TestAttempt } from '@/types/attempt'
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60)
@@ -17,17 +23,65 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+type AnalysisStatus = 'none' | 'pending' | 'ready'
+
+function getAnalysisStatus(a: TestAttempt): AnalysisStatus {
+  if (!a.ta_is_completed) return 'none'
+  if (!a.ta_ai_evaluation_done) return 'pending'
+  if (a.ta_gap_analysis) return 'ready'
+  return 'none'
+}
+
+// ─── Shared sub-components ────────────────────────────────────────────────────
+
 function ScoreBar({ obtained, total }: { obtained: number; total: number }) {
   const pct = total > 0 ? Math.round((obtained / total) * 100) : 0
   const color = pct >= 70 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-400' : 'bg-red-400'
   return (
-    <div className="flex items-center gap-2 min-w-[7rem]">
-      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden min-w-[4rem]">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs font-medium text-slate-600 shrink-0">{obtained}/{total}</span>
     </div>
   )
+}
+
+function StatusChips({ attempt }: { attempt: TestAttempt }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {attempt.ta_is_completed
+        ? <span className="text-xs text-emerald-600 font-medium">Completed</span>
+        : <span className="text-xs text-amber-500 font-medium">In Progress</span>}
+      {attempt.ta_is_evaluated && (
+        <span className="text-xs text-blue-500 font-medium">· Evaluated</span>
+      )}
+    </div>
+  )
+}
+
+function AnalysisAction({ status, onResults }: { status: AnalysisStatus; onResults?: () => void }) {
+  if (status === 'ready') {
+    return (
+      <button
+        onClick={onResults}
+        title="Overall Results"
+        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-violet-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition whitespace-nowrap"
+      >
+        <BarChart2 className="w-3.5 h-3.5 shrink-0" />
+        Results
+      </button>
+    )
+  }
+  if (status === 'pending') {
+    return (
+      <span className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-100 rounded-lg whitespace-nowrap">
+        <Hourglass className="w-3 h-3 shrink-0" />
+        Pending
+      </span>
+    )
+  }
+  return null
 }
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
@@ -43,6 +97,8 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
     </div>
   )
 }
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
 
 const ITEMS_PER_PAGE = 10
 
@@ -82,19 +138,131 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
   )
 }
 
-function RowSkeleton() {
+// ─── Skeletons ────────────────────────────────────────────────────────────────
+
+function CardSkeleton() {
   return (
-    <div className="grid grid-cols-[2rem_1fr_10rem_7rem_6rem_6rem_5rem] gap-3 items-center px-4 py-3 border-b border-slate-100">
-      <Skeleton className="h-4 w-5" />
-      <Skeleton className="h-4 w-32" />
-      <Skeleton className="h-3 w-full" />
-      <Skeleton className="h-4 w-16" />
-      <Skeleton className="h-4 w-12" />
-      <Skeleton className="h-4 w-16" />
-      <Skeleton className="h-7 w-12" />
+    <div className="px-4 py-4 border-b border-slate-100 last:border-0">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex gap-2">
+          <Skeleton className="h-3 w-4 mt-1" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+        <Skeleton className="h-7 w-12 rounded-lg" />
+      </div>
+      <Skeleton className="h-1.5 w-full rounded-full mb-3" />
+      <div className="flex items-center justify-between gap-2">
+        <Skeleton className="h-3 w-40" />
+        <Skeleton className="h-6 w-20 rounded-lg" />
+      </div>
     </div>
   )
 }
+
+function TableRowSkeleton() {
+  return (
+    <div className="grid grid-cols-[2rem_1fr_10rem_7rem_6rem_6rem_auto] gap-3 items-center px-4 py-3 border-b border-slate-100">
+      <Skeleton className="h-4 w-5" />
+      <div className="space-y-1.5">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+      <Skeleton className="h-2 w-full rounded-full" />
+      <Skeleton className="h-4 w-16" />
+      <Skeleton className="h-4 w-10" />
+      <Skeleton className="h-4 w-16" />
+      <div className="flex justify-end gap-1.5">
+        <Skeleton className="h-7 w-20 rounded-lg" />
+        <Skeleton className="h-7 w-12 rounded-lg" />
+      </div>
+    </div>
+  )
+}
+
+// ─── Row variants ─────────────────────────────────────────────────────────────
+
+interface RowProps {
+  attempt: TestAttempt
+  index: number
+  onView: () => void
+  onResults?: () => void
+}
+
+function AttemptCard({ attempt, index, onView, onResults }: RowProps) {
+  const status = getAnalysisStatus(attempt)
+  return (
+    <div className="px-4 py-4 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-colors">
+      {/* Top: index + name + view */}
+      <div className="flex items-start justify-between gap-3 mb-2.5">
+        <div className="flex items-start gap-2 min-w-0">
+          <span className="text-slate-300 text-xs font-mono mt-0.5 shrink-0">{index}</span>
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-800 truncate text-sm">{attempt.ta_user_name}</p>
+            <StatusChips attempt={attempt} />
+          </div>
+        </div>
+        <button
+          onClick={onView}
+          className="shrink-0 flex items-center gap-0.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
+        >
+          View <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Score bar */}
+      <ScoreBar obtained={attempt.ta_marks_obtained} total={attempt.ta_total_marks} />
+
+      {/* Bottom: meta + analysis */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
+          <span>{attempt.ta_total_correct_questions}/{attempt.ta_total_questions} correct</span>
+          <span>{formatTime(attempt.ta_time_taken)}</span>
+          <span>{formatDate(attempt.ta_created_at)}</span>
+        </div>
+        <AnalysisAction status={status} onResults={onResults} />
+      </div>
+    </div>
+  )
+}
+
+function AttemptTableRow({ attempt, index, onView, onResults }: RowProps) {
+  const status = getAnalysisStatus(attempt)
+  return (
+    <div className="grid grid-cols-[2rem_1fr_10rem_7rem_6rem_6rem_auto] gap-3 items-center px-4 py-3 border-b border-slate-100 last:border-0 text-sm hover:bg-blue-50/30 transition-colors">
+      <span className="text-slate-400 text-xs font-mono">{index}</span>
+
+      <div className="min-w-0">
+        <p className="font-medium text-slate-800 truncate">{attempt.ta_user_name}</p>
+        <StatusChips attempt={attempt} />
+      </div>
+
+      <ScoreBar obtained={attempt.ta_marks_obtained} total={attempt.ta_total_marks} />
+
+      <span className="text-slate-600 text-xs">
+        {attempt.ta_total_correct_questions}/{attempt.ta_total_questions} correct
+      </span>
+
+      <span className="text-slate-500 text-xs">{formatTime(attempt.ta_time_taken)}</span>
+
+      <span className="text-slate-400 text-xs">{formatDate(attempt.ta_created_at)}</span>
+
+      <div className="flex items-center justify-end gap-1">
+        <AnalysisAction status={status} onResults={onResults} />
+        <button
+          onClick={onView}
+          className="flex items-center gap-0.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
+        >
+          View <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminAttempts() {
   const { testId } = useParams<{ testId: string }>()
@@ -128,6 +296,15 @@ export default function AdminAttempts() {
     return { avg: `${avgPct}%`, avgTime: formatTime(avgSec) }
   }, [attempts])
 
+  const rowProps = (attempt: TestAttempt, idx: number) => ({
+    attempt,
+    index: (page - 1) * ITEMS_PER_PAGE + idx + 1,
+    onView: () => navigate(`/admin/attempts/${attempt.ta_id}`, { state: { attempt, test, testId } }),
+    onResults: attempt.ta_gap_analysis
+      ? () => navigate(`/admin/attempts/${attempt.ta_id}/overall-results`, { state: { attempt, test, testId } })
+      : undefined,
+  })
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -153,23 +330,12 @@ export default function AdminAttempts() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatCard
-            icon={<Users className="w-4 h-4 text-blue-500" />}
-            label="Total Attempts"
-            value={isLoading ? '…' : String(attempts.length)}
-          />
-          <StatCard
-            icon={<TrendingUp className="w-4 h-4 text-emerald-500" />}
-            label="Avg Score"
-            value={isLoading ? '…' : stats.avg}
-          />
-          <StatCard
-            icon={<Clock className="w-4 h-4 text-amber-500" />}
-            label="Avg Time"
-            value={isLoading ? '…' : stats.avgTime}
-          />
+          <StatCard icon={<Users className="w-4 h-4 text-blue-500" />} label="Total Attempts" value={isLoading ? '…' : String(attempts.length)} />
+          <StatCard icon={<TrendingUp className="w-4 h-4 text-emerald-500" />} label="Avg Score" value={isLoading ? '…' : stats.avg} />
+          <StatCard icon={<Clock className="w-4 h-4 text-amber-500" />} label="Avg Time" value={isLoading ? '…' : stats.avgTime} />
         </div>
 
         {/* Search */}
@@ -184,26 +350,43 @@ export default function AdminAttempts() {
             />
           </div>
           {!isLoading && (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500 shrink-0">
               <span className="font-medium text-slate-700">{filtered.length}</span> attempt{filtered.length !== 1 ? 's' : ''}
             </p>
           )}
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="grid grid-cols-[2rem_1fr_10rem_7rem_6rem_6rem_5rem] gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+        {/* ── Mobile cards (< md) ── */}
+        <div className="md:hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} />)
+          ) : isError ? (
+            <div className="py-16 text-center text-slate-500 text-sm">Failed to load attempts</div>
+          ) : filtered.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 text-sm">
+              {search ? 'No attempts match your search.' : 'No attempts yet for this test.'}
+            </div>
+          ) : (
+            paginated.map((attempt, idx) => (
+              <AttemptCard key={attempt.ta_id} {...rowProps(attempt, idx)} />
+            ))
+          )}
+        </div>
+
+        {/* ── Desktop table (≥ md) ── */}
+        <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="grid grid-cols-[2rem_1fr_10rem_7rem_6rem_6rem_auto] gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
             <span>#</span>
             <span>User</span>
             <span>Score</span>
             <span>Questions</span>
             <span>Time</span>
             <span>Date</span>
-            <span className="text-right">Details</span>
+            <span className="text-right">Actions</span>
           </div>
 
           {isLoading ? (
-            <div>{Array.from({ length: 6 }).map((_, i) => <RowSkeleton key={i} />)}</div>
+            Array.from({ length: 6 }).map((_, i) => <TableRowSkeleton key={i} />)
           ) : isError ? (
             <div className="py-20 text-center text-slate-500 text-sm">Failed to load attempts</div>
           ) : filtered.length === 0 ? (
@@ -212,12 +395,7 @@ export default function AdminAttempts() {
             </div>
           ) : (
             paginated.map((attempt, idx) => (
-              <AttemptRow
-                key={attempt.ta_id}
-                attempt={attempt}
-                index={(page - 1) * ITEMS_PER_PAGE + idx + 1}
-                onView={() => navigate(`/admin/attempts/${attempt.ta_id}`, { state: { attempt, test, testId } })}
-              />
+              <AttemptTableRow key={attempt.ta_id} {...rowProps(attempt, idx)} />
             ))
           )}
         </div>
@@ -229,44 +407,5 @@ export default function AdminAttempts() {
         )}
       </main>
     </motion.div>
-  )
-}
-
-function AttemptRow({ attempt, index, onView }: { attempt: TestAttempt; index: number; onView: () => void }) {
-  return (
-    <div className="grid grid-cols-[2rem_1fr_10rem_7rem_6rem_6rem_5rem] gap-3 items-center px-4 py-3 border-b border-slate-100 last:border-0 text-sm hover:bg-blue-50/30 transition-colors">
-      <span className="text-slate-400 text-xs font-mono">{index}</span>
-
-      <div className="min-w-0">
-        <p className="font-medium text-slate-800 truncate">{attempt.ta_user_name}</p>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          {attempt.ta_is_completed
-            ? <span className="text-xs text-emerald-600 font-medium">Completed</span>
-            : <span className="text-xs text-amber-500 font-medium">In Progress</span>}
-          {attempt.ta_is_evaluated && (
-            <span className="text-xs text-blue-500 font-medium">· Evaluated</span>
-          )}
-        </div>
-      </div>
-
-      <ScoreBar obtained={attempt.ta_marks_obtained} total={attempt.ta_total_marks} />
-
-      <span className="text-slate-600 text-xs">
-        {attempt.ta_total_correct_questions}/{attempt.ta_total_questions} correct
-      </span>
-
-      <span className="text-slate-500 text-xs">{formatTime(attempt.ta_time_taken)}</span>
-
-      <span className="text-slate-400 text-xs">{formatDate(attempt.ta_created_at)}</span>
-
-      <div className="flex justify-end">
-        <button
-          onClick={onView}
-          className="flex items-center gap-0.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
-        >
-          View <ChevronRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
-    </div>
   )
 }
