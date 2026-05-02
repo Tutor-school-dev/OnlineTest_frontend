@@ -10,8 +10,8 @@ import {
   HelpCircle,
   BarChart2,
   AlertTriangle,
-  BookOpen,
   Brain,
+  Zap,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useGapAnalysis } from '@/hooks/useGapAnalysis'
@@ -20,30 +20,89 @@ import type { TestAttempt } from '@/types/attempt'
 import type { Test } from '@/types/test'
 import type { ReasoningNode } from '@/types/dag'
 
-// ─── Local gap types (mirrors GraphModal) ────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NodeGap { cn_id: string; state: 'ok' | 'partial' | 'wrong' | 'absent'; key: boolean }
 interface TopicScore { topic: string; score: number; signal: 'strong' | 'developing' | 'weak' | 'absent' }
 interface QuestionPitfall { label: string; severity: 'critical' | 'moderate' | 'minor'; remedy: string }
+interface EnrichedNode extends ReasoningNode { gap: NodeGap | null }
 
-// ─── Config maps ─────────────────────────────────────────────────────────────
+type GapState = 'ok' | 'partial' | 'wrong' | 'absent'
+type Signal   = 'mastered' | 'proficient' | 'developing' | 'fragile' | 'absent'
 
-const SIGNAL_CFG = {
-  mastered:   { label: 'Mastered',   color: '#10b981', ringCls: 'text-emerald-600', badgeCls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  proficient: { label: 'Proficient', color: '#3b82f6', ringCls: 'text-blue-600',    badgeCls: 'bg-blue-50 text-blue-700 border-blue-200'          },
-  developing: { label: 'Developing', color: '#f59e0b', ringCls: 'text-amber-600',   badgeCls: 'bg-amber-50 text-amber-700 border-amber-200'        },
-  fragile:    { label: 'Fragile',    color: '#f97316', ringCls: 'text-orange-600',  badgeCls: 'bg-orange-50 text-orange-700 border-orange-200'     },
-  absent:     { label: 'Absent',     color: '#94a3b8', ringCls: 'text-slate-500',   badgeCls: 'bg-slate-50 text-slate-600 border-slate-200'        },
-} as const
-type Signal = keyof typeof SIGNAL_CFG
+// ─── Config ───────────────────────────────────────────────────────────────────
 
-const GAP_CFG = {
-  ok:      { label: 'Correct', Icon: CheckCircle2, cardCls: 'border-emerald-200 bg-emerald-50/60', iconCls: 'text-emerald-500', badgeCls: 'bg-emerald-100 text-emerald-700' },
-  partial: { label: 'Partial', Icon: MinusCircle,  cardCls: 'border-amber-200 bg-amber-50/60',     iconCls: 'text-amber-500',   badgeCls: 'bg-amber-100 text-amber-700'     },
-  wrong:   { label: 'Wrong',   Icon: XCircle,      cardCls: 'border-red-200 bg-red-50/60',         iconCls: 'text-red-500',     badgeCls: 'bg-red-100 text-red-700'         },
-  absent:  { label: 'Missing', Icon: HelpCircle,   cardCls: 'border-slate-200 bg-slate-50/60',     iconCls: 'text-slate-400',   badgeCls: 'bg-slate-100 text-slate-500'     },
-} as const
-type GapState = keyof typeof GAP_CFG
+const GAP_STATE_ORDER: GapState[] = ['ok', 'partial', 'wrong', 'absent']
+
+const GAP_CFG: Record<GapState, {
+  label: string
+  Icon: React.ElementType
+  accentBg: string
+  iconCls: string
+  textCls: string
+  pillBg: string
+  pillText: string
+  pillBorder: string
+  sectionBg: string
+  sectionBorder: string
+}> = {
+  ok: {
+    label: 'Correct',
+    Icon: CheckCircle2,
+    accentBg: 'bg-emerald-500',
+    iconCls: 'text-emerald-500',
+    textCls: 'text-emerald-700',
+    pillBg: 'bg-emerald-50',
+    pillText: 'text-emerald-700',
+    pillBorder: 'border-emerald-200',
+    sectionBg: 'bg-emerald-50/40',
+    sectionBorder: 'border-emerald-100',
+  },
+  partial: {
+    label: 'Partial',
+    Icon: MinusCircle,
+    accentBg: 'bg-amber-400',
+    iconCls: 'text-amber-500',
+    textCls: 'text-amber-700',
+    pillBg: 'bg-amber-50',
+    pillText: 'text-amber-700',
+    pillBorder: 'border-amber-200',
+    sectionBg: 'bg-amber-50/40',
+    sectionBorder: 'border-amber-100',
+  },
+  wrong: {
+    label: 'Wrong',
+    Icon: XCircle,
+    accentBg: 'bg-red-400',
+    iconCls: 'text-red-500',
+    textCls: 'text-red-700',
+    pillBg: 'bg-red-50',
+    pillText: 'text-red-700',
+    pillBorder: 'border-red-200',
+    sectionBg: 'bg-red-50/30',
+    sectionBorder: 'border-red-100',
+  },
+  absent: {
+    label: 'Not Covered',
+    Icon: HelpCircle,
+    accentBg: 'bg-slate-300',
+    iconCls: 'text-slate-400',
+    textCls: 'text-slate-500',
+    pillBg: 'bg-slate-50',
+    pillText: 'text-slate-500',
+    pillBorder: 'border-slate-200',
+    sectionBg: 'bg-slate-50/40',
+    sectionBorder: 'border-slate-100',
+  },
+}
+
+const SIGNAL_CFG: Record<Signal, { label: string; color: string; badgeCls: string }> = {
+  mastered:   { label: 'Mastered',   color: '#10b981', badgeCls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  proficient: { label: 'Proficient', color: '#3b82f6', badgeCls: 'bg-blue-50 text-blue-700 border-blue-200'          },
+  developing: { label: 'Developing', color: '#f59e0b', badgeCls: 'bg-amber-50 text-amber-700 border-amber-200'        },
+  fragile:    { label: 'Fragile',    color: '#f97316', badgeCls: 'bg-orange-50 text-orange-700 border-orange-200'     },
+  absent:     { label: 'Absent',     color: '#94a3b8', badgeCls: 'bg-slate-50 text-slate-600 border-slate-200'        },
+}
 
 const NODE_TYPE_CLS: Record<string, string> = {
   root:         'bg-emerald-100 text-emerald-700',
@@ -52,23 +111,15 @@ const NODE_TYPE_CLS: Record<string, string> = {
 }
 
 const TOPIC_BAR_CLS: Record<string, string> = {
-  strong:     'bg-emerald-500',
-  developing: 'bg-amber-400',
-  weak:       'bg-red-400',
-  absent:     'bg-slate-300',
+  strong: 'bg-emerald-500', developing: 'bg-amber-400', weak: 'bg-red-400', absent: 'bg-slate-300',
 }
-
-const TOPIC_SIGNAL_CLS: Record<string, string> = {
-  strong:     'text-emerald-600',
-  developing: 'text-amber-600',
-  weak:       'text-red-500',
-  absent:     'text-slate-400',
+const TOPIC_SIG_CLS: Record<string, string> = {
+  strong: 'text-emerald-600', developing: 'text-amber-600', weak: 'text-red-500', absent: 'text-slate-400',
 }
-
-const SEVERITY_CFG = {
-  critical: { label: 'Critical', cls: 'bg-red-100 text-red-700 border-red-200'     },
-  moderate: { label: 'Moderate', cls: 'bg-amber-100 text-amber-700 border-amber-200'},
-  minor:    { label: 'Minor',    cls: 'bg-blue-100 text-blue-700 border-blue-200'   },
+const SEVERITY_CFG: Record<string, { label: string; cls: string }> = {
+  critical: { label: 'Critical', cls: 'bg-red-100 text-red-700 border-red-200'      },
+  moderate: { label: 'Moderate', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+  minor:    { label: 'Minor',    cls: 'bg-blue-100 text-blue-700 border-blue-200'    },
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -83,57 +134,75 @@ function MasteryRing({ pct, signal }: { pct: number; signal: string }) {
       <svg width="116" height="116" viewBox="0 0 116 116" className="drop-shadow-sm">
         <circle cx="58" cy="58" r={r} fill="none" stroke="#e2e8f0" strokeWidth="9" />
         <circle
-          cx="58" cy="58" r={r}
-          fill="none"
-          stroke={cfg.color}
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
+          cx="58" cy="58" r={r} fill="none"
+          stroke={cfg.color} strokeWidth="9" strokeLinecap="round"
+          strokeDasharray={circ} strokeDashoffset={offset}
           transform="rotate(-90 58 58)"
           style={{ transition: 'stroke-dashoffset 0.8s ease' }}
         />
-        <text x="58" y="53" textAnchor="middle" dominantBaseline="middle" fontSize="21" fontWeight="bold" fill={cfg.color}>
-          {pct}%
-        </text>
-        <text x="58" y="70" textAnchor="middle" dominantBaseline="middle" fontSize="10" fill="#94a3b8">
-          mastery
-        </text>
+        <text x="58" y="53" textAnchor="middle" dominantBaseline="middle" fontSize="21" fontWeight="bold" fill={cfg.color}>{pct}%</text>
+        <text x="58" y="70" textAnchor="middle" dominantBaseline="middle" fontSize="10" fill="#94a3b8">mastery</text>
       </svg>
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${cfg.badgeCls}`}>
-        {cfg.label}
-      </span>
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${cfg.badgeCls}`}>{cfg.label}</span>
     </div>
   )
 }
 
-interface EnrichedNode extends ReasoningNode { gap: NodeGap | null }
-
+// Horizontal card: white bg, thick left accent bar, clear state signal at top
 function NodeCard({ node }: { node: EnrichedNode }) {
   const state = (node.gap?.state ?? 'absent') as GapState
   const cfg = GAP_CFG[state]
   const { Icon } = cfg
+
   return (
-    <div className={`rounded-xl border-2 ${cfg.cardCls} p-4 flex flex-col gap-2 relative transition-shadow hover:shadow-md`}>
-      {node.is_key_step && (
-        <span className="absolute top-3 right-3" title="Key step">
-          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-        </span>
-      )}
-      <div className="flex items-start gap-2 pr-5">
-        <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${cfg.iconCls}`} />
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex hover:shadow-md transition-shadow">
+      {/* Left accent */}
+      <div className={`w-1.5 shrink-0 ${cfg.accentBg}`} />
+
+      {/* Body */}
+      <div className="flex-1 min-w-0 p-4 flex flex-col gap-2">
+        {/* Row 1: state + key step + node type */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Icon className={`w-3.5 h-3.5 shrink-0 ${cfg.iconCls}`} />
+            <span className={`text-xs font-semibold ${cfg.textCls}`}>{cfg.label}</span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {node.is_key_step && (
+              <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                Key Step
+              </span>
+            )}
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${NODE_TYPE_CLS[node.node_type] ?? 'bg-slate-100 text-slate-600'}`}>
+              {node.node_type}
+            </span>
+          </div>
+        </div>
+
+        {/* Row 2: label */}
         <p className="text-sm font-semibold text-slate-800 leading-snug">{node.label}</p>
-      </div>
-      {node.description && (
-        <p className="text-xs text-slate-500 leading-relaxed">{node.description}</p>
-      )}
-      <div className="flex flex-wrap items-center gap-1.5 mt-auto pt-1">
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${NODE_TYPE_CLS[node.node_type] ?? 'bg-slate-100 text-slate-600'}`}>
-          {node.node_type}
-        </span>
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.badgeCls}`}>
-          {cfg.label}
-        </span>
+
+        {/* Row 3: description */}
+        {node.description && (
+          <p className="text-xs text-slate-500 leading-relaxed">{node.description}</p>
+        )}
+
+        {/* Row 4: optional fields */}
+        {(node.confidence_score != null || node.reasoning_state) && (
+          <div className="flex flex-wrap items-center gap-3 pt-0.5">
+            {node.confidence_score != null && (
+              <span className="text-[11px] text-slate-400">
+                Confidence: <span className="font-medium text-slate-600">{node.confidence_score}%</span>
+              </span>
+            )}
+            {node.reasoning_state && (
+              <span className="text-[11px] text-slate-400 capitalize">
+                Reasoning: <span className="font-medium text-slate-600">{node.reasoning_state}</span>
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -141,30 +210,78 @@ function NodeCard({ node }: { node: EnrichedNode }) {
 
 function NodeCardSkeleton() {
   return (
-    <div className="rounded-xl border-2 border-slate-100 bg-slate-50/60 p-4 flex flex-col gap-2">
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-3 w-full" />
-      <Skeleton className="h-3 w-2/3" />
-      <div className="flex gap-1.5 mt-1">
-        <Skeleton className="h-4 w-16 rounded-full" />
-        <Skeleton className="h-4 w-14 rounded-full" />
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex h-[108px]">
+      <div className="w-1.5 shrink-0 bg-slate-100" />
+      <div className="flex-1 p-4 flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3.5 w-16" />
+          <Skeleton className="h-4 w-20 rounded-full" />
+        </div>
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
+    </div>
+  )
+}
+
+// Summary strip: 4 pills with counts
+function NodeSummaryStrip({ groups, total }: { groups: Record<GapState, EnrichedNode[]>; total: number }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {GAP_STATE_ORDER.map(state => {
+        const cfg = GAP_CFG[state]
+        const { Icon } = cfg
+        const count = groups[state].length
+        const pct = total > 0 ? Math.round(count / total * 100) : 0
+        return (
+          <div key={state} className={`flex items-center gap-2 pl-3 pr-4 py-2 rounded-xl border ${cfg.pillBg} ${cfg.pillBorder}`}>
+            <Icon className={`w-4 h-4 shrink-0 ${cfg.iconCls}`} />
+            <span className={`text-base font-bold ${cfg.textCls}`}>{count}</span>
+            <div>
+              <p className={`text-[11px] font-semibold leading-none ${cfg.textCls}`}>{cfg.label}</p>
+              <p className="text-[10px] text-slate-400 leading-none mt-0.5">{pct}%</p>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// A labelled group section for one gap state
+function NodeGroup({ state, nodes }: { state: GapState; nodes: EnrichedNode[] }) {
+  if (nodes.length === 0) return null
+  const cfg = GAP_CFG[state]
+  const { Icon } = cfg
+  return (
+    <div>
+      {/* Section header */}
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-2 ${cfg.sectionBg} border ${cfg.sectionBorder}`}>
+        <Icon className={`w-4 h-4 shrink-0 ${cfg.iconCls}`} />
+        <span className={`text-xs font-semibold ${cfg.textCls}`}>{cfg.label}</span>
+        <span className={`ml-auto text-xs font-bold ${cfg.textCls} opacity-70`}>{nodes.length}</span>
+      </div>
+      {/* Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        {nodes.map(node => (
+          <NodeCard key={node.rn_id} node={node} />
+        ))}
       </div>
     </div>
   )
 }
 
 function TopicRow({ topic }: { topic: TopicScore }) {
-  const barCls = TOPIC_BAR_CLS[topic.signal] ?? 'bg-slate-300'
-  const sigCls = TOPIC_SIGNAL_CLS[topic.signal] ?? 'text-slate-500'
   const pct = Math.min(topic.score, 100)
   return (
     <div className="flex items-center gap-3">
       <p className="text-sm text-slate-700 w-32 shrink-0 truncate capitalize">{topic.topic}</p>
       <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${barCls}`} style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full transition-all ${TOPIC_BAR_CLS[topic.signal] ?? 'bg-slate-300'}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className={`text-xs font-semibold w-8 text-right shrink-0 ${sigCls}`}>{pct}%</span>
-      <span className={`text-xs capitalize shrink-0 w-20 ${sigCls}`}>{topic.signal}</span>
+      <span className={`text-xs font-semibold w-8 text-right shrink-0 ${TOPIC_SIG_CLS[topic.signal] ?? 'text-slate-500'}`}>{pct}%</span>
+      <span className={`text-xs capitalize shrink-0 w-20 ${TOPIC_SIG_CLS[topic.signal] ?? 'text-slate-500'}`}>{topic.signal}</span>
     </div>
   )
 }
@@ -178,9 +295,7 @@ function PitfallItem({ pitfall }: { pitfall: QuestionPitfall }) {
       </span>
       <div className="min-w-0">
         <p className="text-sm font-medium text-slate-800">{pitfall.label}</p>
-        {pitfall.remedy && (
-          <p className="text-xs text-slate-500 mt-0.5">{pitfall.remedy}</p>
-        )}
+        {pitfall.remedy && <p className="text-xs text-slate-500 mt-0.5">{pitfall.remedy}</p>}
       </div>
     </div>
   )
@@ -190,11 +305,11 @@ function PitfallItem({ pitfall }: { pitfall: QuestionPitfall }) {
 
 export default function AdminOverallResults() {
   const location = useLocation()
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
 
   const attempt = location.state?.attempt as TestAttempt | undefined
-  const test = location.state?.test as Test | undefined
-  const testId = location.state?.testId as string | undefined
+  const test    = location.state?.test    as Test          | undefined
+  const testId  = location.state?.testId  as string        | undefined
 
   const gapId = attempt?.ta_gap_analysis ?? null
 
@@ -202,22 +317,20 @@ export default function AdminOverallResults() {
   const gapItem = gapData?.data?.[0]
 
   const nodeGaps = useMemo<NodeGap[]>(() => {
-    if (!gapItem?.node_gaps) return []
-    try { return JSON.parse(gapItem.node_gaps) } catch { return [] }
+    try { return gapItem?.node_gaps ? JSON.parse(gapItem.node_gaps) : [] } catch { return [] }
   }, [gapItem?.node_gaps])
 
   const topics = useMemo<TopicScore[]>(() => {
-    if (!gapItem?.topics) return []
-    try { return JSON.parse(gapItem.topics) } catch { return [] }
+    try { return gapItem?.topics ? JSON.parse(gapItem.topics) : [] } catch { return [] }
   }, [gapItem?.topics])
 
   const pitfalls = useMemo<QuestionPitfall[]>(() => {
-    if (!gapItem?.pitfalls) return []
-    try { return JSON.parse(gapItem.pitfalls) } catch { return [] }
+    try { return gapItem?.pitfalls ? JSON.parse(gapItem.pitfalls) : [] } catch { return [] }
   }, [gapItem?.pitfalls])
 
+  // cn_id maps to rn_id (the DB primary key); the `id` field has gorm:"-" so it's never populated
   const nodeIdsStr = useMemo(
-    () => (nodeGaps.length > 0 ? nodeGaps.map(g => g.cn_id).join(',') : null),
+    () => nodeGaps.length > 0 ? nodeGaps.map(g => g.cn_id).join(',') : null,
     [nodeGaps]
   )
 
@@ -226,14 +339,28 @@ export default function AdminOverallResults() {
   const enrichedNodes = useMemo<EnrichedNode[]>(() => {
     if (!nodesData?.nodes) return []
     const gapMap = new Map(nodeGaps.map(g => [g.cn_id, g]))
-    return nodesData.nodes.map(n => ({ ...n, gap: gapMap.get(n.id) ?? null }))
+    // match cn_id → rn_id (the DB primary key the backend filters on)
+    return nodesData.nodes.map(n => ({ ...n, gap: gapMap.get(n.rn_id) ?? null }))
   }, [nodesData?.nodes, nodeGaps])
 
-  const signal = (gapItem?.signal ?? 'absent') as Signal
+  // Group + sort (key steps first within each group)
+  const groupedNodes = useMemo(() => {
+    const groups: Record<GapState, EnrichedNode[]> = { ok: [], partial: [], wrong: [], absent: [] }
+    for (const node of enrichedNodes) {
+      const s = (node.gap?.state ?? 'absent') as GapState
+      groups[s].push(node)
+    }
+    for (const s of GAP_STATE_ORDER) {
+      groups[s].sort((a, b) => (b.is_key_step ? 1 : 0) - (a.is_key_step ? 1 : 0))
+    }
+    return groups
+  }, [enrichedNodes])
+
+  const signal  = (gapItem?.signal ?? 'absent') as Signal
   const mastery = gapItem?.mastery ?? 0
 
   const nodeCounts = useMemo(() => {
-    const ok = nodeGaps.filter(g => g.state === 'ok').length
+    const ok  = nodeGaps.filter(g => g.state === 'ok').length
     const key = nodeGaps.filter(g => g.key).length
     const keyOk = nodeGaps.filter(g => g.key && g.state === 'ok').length
     return { ok, total: nodeGaps.length, key, keyOk }
@@ -245,6 +372,8 @@ export default function AdminOverallResults() {
     if (testId) navigate(`/admin/test/${testId}/attempts`, { state: { test } })
     else navigate(-1)
   }
+
+  // ── Guard states ────────────────────────────────────────────────────────────
 
   if (!gapId) {
     return (
@@ -270,21 +399,18 @@ export default function AdminOverallResults() {
     )
   }
 
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -16 }}
-      transition={{ duration: 0.25 }}
+      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.25 }}
       className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/20"
     >
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-3">
-          <button
-            onClick={handleBack}
-            className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
-          >
+          <button onClick={handleBack} className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">
@@ -298,17 +424,17 @@ export default function AdminOverallResults() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-        {/* Mastery overview card */}
+        {/* Mastery overview */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           {isLoading ? (
             <div className="flex flex-col sm:flex-row items-center gap-6">
-              <Skeleton className="w-28 h-28 rounded-full" />
+              <Skeleton className="w-28 h-28 rounded-full shrink-0" />
               <div className="flex-1 space-y-3 w-full">
                 <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-4 w-full max-w-sm" />
-                <div className="flex gap-4">
-                  <Skeleton className="h-10 w-28 rounded-xl" />
-                  <Skeleton className="h-10 w-28 rounded-xl" />
+                <Skeleton className="h-4 w-64" />
+                <div className="flex gap-3">
+                  <Skeleton className="h-14 w-28 rounded-xl" />
+                  <Skeleton className="h-14 w-28 rounded-xl" />
                 </div>
               </div>
             </div>
@@ -319,18 +445,22 @@ export default function AdminOverallResults() {
                 <div>
                   <h2 className="text-lg font-bold text-slate-800">{attempt?.ta_user_name}</h2>
                   <p className="text-sm text-slate-500 mt-0.5">
-                    Completed {attempt?.ta_total_correct_questions ?? 0} of {attempt?.ta_total_questions ?? 0} questions correctly
+                    {attempt?.ta_total_correct_questions ?? 0} of {attempt?.ta_total_questions ?? 0} questions answered correctly
                   </p>
                 </div>
                 <div className="flex flex-wrap justify-center sm:justify-start gap-3">
                   <div className="flex flex-col items-center sm:items-start bg-slate-50 rounded-xl px-4 py-2.5 border border-slate-100">
                     <span className="text-xs text-slate-400 font-medium">Nodes Correct</span>
-                    <span className="text-lg font-bold text-slate-700">{nodeCounts.ok}<span className="text-sm font-normal text-slate-400">/{nodeCounts.total}</span></span>
+                    <span className="text-lg font-bold text-slate-700">
+                      {nodeCounts.ok}<span className="text-sm font-normal text-slate-400">/{nodeCounts.total}</span>
+                    </span>
                   </div>
                   {nodeCounts.key > 0 && (
                     <div className="flex flex-col items-center sm:items-start bg-amber-50 rounded-xl px-4 py-2.5 border border-amber-100">
-                      <span className="text-xs text-amber-600 font-medium">Key Steps</span>
-                      <span className="text-lg font-bold text-amber-700">{nodeCounts.keyOk}<span className="text-sm font-normal text-amber-400">/{nodeCounts.key}</span></span>
+                      <span className="text-xs text-amber-600 font-medium">Key Steps Correct</span>
+                      <span className="text-lg font-bold text-amber-700">
+                        {nodeCounts.keyOk}<span className="text-sm font-normal text-amber-400">/{nodeCounts.key}</span>
+                      </span>
                     </div>
                   )}
                 </div>
@@ -340,28 +470,40 @@ export default function AdminOverallResults() {
         </div>
 
         {/* Knowledge Nodes */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
             <Brain className="w-4 h-4 text-slate-500" />
             <h3 className="text-sm font-semibold text-slate-700">Knowledge Nodes</h3>
             {!isLoading && enrichedNodes.length > 0 && (
-              <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-500 font-medium">
+              <span className="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-500 font-medium">
                 {enrichedNodes.length}
               </span>
             )}
           </div>
+
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => <NodeCardSkeleton key={i} />)}
+            <div className="space-y-4">
+              {/* summary strip skeleton */}
+              <div className="flex flex-wrap gap-2">
+                {GAP_STATE_ORDER.map(s => <Skeleton key={s} className="h-12 w-28 rounded-xl" />)}
+              </div>
+              {/* card skeletons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {Array.from({ length: 6 }).map((_, i) => <NodeCardSkeleton key={i} />)}
+              </div>
             </div>
           ) : enrichedNodes.length === 0 ? (
             <div className="py-10 text-center text-slate-400 text-sm bg-white rounded-2xl border border-slate-100">
               No node data available.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {enrichedNodes.map(node => (
-                <NodeCard key={node.rn_id} node={node} />
+            <div className="space-y-5">
+              {/* Summary strip */}
+              <NodeSummaryStrip groups={groupedNodes} total={enrichedNodes.length} />
+
+              {/* Groups */}
+              {GAP_STATE_ORDER.map(state => (
+                <NodeGroup key={state} state={state} nodes={groupedNodes[state]} />
               ))}
             </div>
           )}
@@ -371,7 +513,6 @@ export default function AdminOverallResults() {
         {!isLoading && (topics.length > 0 || pitfalls.length > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-            {/* Topic Scores */}
             {topics.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
                 <div className="flex items-center gap-2">
@@ -384,11 +525,10 @@ export default function AdminOverallResults() {
               </div>
             )}
 
-            {/* Pitfalls */}
             {pitfalls.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-slate-400" />
+                  <Zap className="w-4 h-4 text-slate-400" />
                   <h3 className="text-sm font-semibold text-slate-700">Pitfalls</h3>
                 </div>
                 <div className="space-y-2">
@@ -397,22 +537,6 @@ export default function AdminOverallResults() {
               </div>
             )}
 
-          </div>
-        )}
-
-        {/* Legend */}
-        {!isLoading && enrichedNodes.length > 0 && (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-400 pb-2">
-            <div className="flex items-center gap-1.5">
-              <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-              <span>Key step</span>
-            </div>
-            {(Object.entries(GAP_CFG) as [GapState, typeof GAP_CFG[GapState]][]).map(([state, cfg]) => (
-              <div key={state} className="flex items-center gap-1.5">
-                <cfg.Icon className={`w-3 h-3 ${cfg.iconCls}`} />
-                <span>{cfg.label}</span>
-              </div>
-            ))}
           </div>
         )}
 
