@@ -1,13 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
-  ArrowLeft, Users, Clock, TrendingUp,
-  ChevronLeft, ChevronRight, Search,
-  BarChart2, Hourglass,
+  ArrowLeft, Clock, TrendingUp, Award,
+  ChevronLeft, ChevronRight, BarChart2, Hourglass,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAttempts } from '@/hooks/useAttempts'
+import { useUserAttempts } from '@/hooks/useUserAttempts'
+import { useUserAuthStore } from '@/stores/user-auth.store'
 import type { Test } from '@/types/test'
 import type { TestAttempt } from '@/types/attempt'
 
@@ -32,40 +32,7 @@ function getAnalysisStatus(a: TestAttempt): AnalysisStatus {
   return 'none'
 }
 
-// ─── Grouping ─────────────────────────────────────────────────────────────────
-
-interface UserAttemptGroup {
-  userId: string
-  userName: string
-  latest: TestAttempt
-  previous: TestAttempt[]
-}
-
-function groupAttemptsByUser(attempts: TestAttempt[]): UserAttemptGroup[] {
-  const map = new Map<string, TestAttempt[]>()
-  for (const a of attempts) {
-    const arr = map.get(a.ta_user_id) ?? []
-    arr.push(a)
-    map.set(a.ta_user_id, arr)
-  }
-  const groups: UserAttemptGroup[] = []
-  map.forEach(arr => {
-    const sorted = [...arr].sort(
-      (a, b) => new Date(b.ta_created_at).getTime() - new Date(a.ta_created_at).getTime()
-    )
-    groups.push({
-      userId: sorted[0].ta_user_id,
-      userName: sorted[0].ta_user_name,
-      latest: sorted[0],
-      previous: sorted.slice(1),
-    })
-  })
-  return groups.sort(
-    (a, b) => new Date(b.latest.ta_created_at).getTime() - new Date(a.latest.ta_created_at).getTime()
-  )
-}
-
-// ─── Shared sub-components ────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ScoreBar({ obtained, total }: { obtained: number; total: number }) {
   const pct = total > 0 ? Math.round((obtained / total) * 100) : 0
@@ -108,14 +75,10 @@ function AnalysisAction({ status, onResults }: { status: AnalysisStatus; onResul
   }
   if (status === 'pending') {
     return (
-      <button
-        disabled
-        title="AI evaluation in progress"
-        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 rounded-lg whitespace-nowrap cursor-default"
-      >
+      <span className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-100 rounded-lg whitespace-nowrap">
         <Hourglass className="w-3 h-3 shrink-0" />
-        Results
-      </button>
+        Pending
+      </span>
     )
   }
   return null
@@ -181,14 +144,11 @@ function CardSkeleton() {
   return (
     <div className="px-4 py-4 border-b border-slate-100 last:border-0">
       <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-1">
           <Skeleton className="h-3 w-4 mt-1" />
-          <div className="space-y-1.5">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-3 w-20" />
-          </div>
+          <Skeleton className="h-4 w-20" />
         </div>
-        <Skeleton className="h-7 w-12 rounded-lg" />
+        <Skeleton className="h-7 w-14 rounded-lg" />
       </div>
       <Skeleton className="h-1.5 w-full rounded-full mb-3" />
       <div className="flex items-center justify-between gap-2">
@@ -201,19 +161,15 @@ function CardSkeleton() {
 
 function TableRowSkeleton() {
   return (
-    <div className="grid grid-cols-[2rem_1fr_10rem_7rem_6rem_7rem_10rem] gap-3 items-center px-4 py-3 border-b border-slate-100">
+    <div className="grid grid-cols-[2rem_10rem_7rem_6rem_6rem_auto] gap-3 items-center px-4 py-3 border-b border-slate-100">
       <Skeleton className="h-4 w-5" />
-      <div className="space-y-1.5">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-3 w-24" />
-      </div>
       <Skeleton className="h-2 w-full rounded-full" />
       <Skeleton className="h-4 w-16" />
       <Skeleton className="h-4 w-10" />
       <Skeleton className="h-4 w-16" />
       <div className="flex justify-end gap-1.5">
+        <Skeleton className="h-7 w-16 rounded-lg" />
         <Skeleton className="h-7 w-20 rounded-lg" />
-        <Skeleton className="h-7 w-12 rounded-lg" />
       </div>
     </div>
   )
@@ -223,7 +179,7 @@ function TableRowSkeleton() {
 
 interface RowProps {
   attempt: TestAttempt
-  index: number | string
+  index: number
   onView: () => void
   onResults?: () => void
 }
@@ -235,10 +191,7 @@ function AttemptCard({ attempt, index, onView, onResults }: RowProps) {
       <div className="flex items-start justify-between gap-3 mb-2.5">
         <div className="flex items-start gap-2 min-w-0">
           <span className="text-slate-300 text-xs font-mono mt-0.5 shrink-0">{index}</span>
-          <div className="min-w-0">
-            <p className="font-semibold text-slate-800 truncate text-sm">{attempt.ta_user_name}</p>
-            <StatusChips attempt={attempt} />
-          </div>
+          <StatusChips attempt={attempt} />
         </div>
         <button
           onClick={onView}
@@ -247,9 +200,7 @@ function AttemptCard({ attempt, index, onView, onResults }: RowProps) {
           View <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
-
       <ScoreBar obtained={attempt.ta_marks_obtained} total={attempt.ta_total_marks} />
-
       <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
           <span>{attempt.ta_total_correct_questions}/{attempt.ta_total_questions} correct</span>
@@ -265,25 +216,15 @@ function AttemptCard({ attempt, index, onView, onResults }: RowProps) {
 function AttemptTableRow({ attempt, index, onView, onResults }: RowProps) {
   const status = getAnalysisStatus(attempt)
   return (
-    <div className="grid grid-cols-[2rem_1fr_10rem_7rem_6rem_7rem_10rem] gap-3 items-center px-4 py-3 border-b border-slate-100 last:border-0 text-sm hover:bg-blue-50/30 transition-colors">
+    <div className="grid grid-cols-[2rem_10rem_7rem_6rem_6rem_auto] gap-3 items-center px-4 py-3 border-b border-slate-100 last:border-0 text-sm hover:bg-blue-50/30 transition-colors">
       <span className="text-slate-400 text-xs font-mono">{index}</span>
-
-      <div className="min-w-0">
-        <p className="font-medium text-slate-800 truncate">{attempt.ta_user_name}</p>
-        <StatusChips attempt={attempt} />
-      </div>
-
       <ScoreBar obtained={attempt.ta_marks_obtained} total={attempt.ta_total_marks} />
-
       <span className="text-slate-600 text-xs">
         {attempt.ta_total_correct_questions}/{attempt.ta_total_questions} correct
       </span>
-
       <span className="text-slate-500 text-xs">{formatTime(attempt.ta_time_taken)}</span>
-
       <span className="text-slate-400 text-xs">{formatDate(attempt.ta_created_at)}</span>
-
-      <div className="flex items-center justify-center gap-1">
+      <div className="flex items-center justify-end gap-1">
         <AnalysisAction status={status} onResults={onResults} />
         <button
           onClick={onView}
@@ -296,156 +237,40 @@ function AttemptTableRow({ attempt, index, onView, onResults }: RowProps) {
   )
 }
 
-// ─── Row props factory ────────────────────────────────────────────────────────
-
-function makeRowProps(
-  attempt: TestAttempt,
-  index: number | string,
-  navigate: ReturnType<typeof useNavigate>,
-  test: Test | undefined,
-  testId: string | undefined
-): RowProps {
-  return {
-    attempt,
-    index,
-    onView: () => navigate(`/admin/attempts/${attempt.ta_id}`, { state: { attempt, test, testId } }),
-    onResults: attempt.ta_gap_analysis
-      ? () => navigate(`/admin/attempts/${attempt.ta_id}/overall-results`, { state: { attempt, test, testId } })
-      : undefined,
-  }
-}
-
-// ─── Group wrappers ───────────────────────────────────────────────────────────
-
-interface GroupProps {
-  group: UserAttemptGroup
-  groupIndex: number
-  navigate: ReturnType<typeof useNavigate>
-  test: Test | undefined
-  testId: string | undefined
-}
-
-function UserGroupCard({ group, groupIndex, navigate, test, testId }: GroupProps) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div className="border-b border-slate-100 last:border-0">
-      <AttemptCard {...makeRowProps(group.latest, groupIndex, navigate, test, testId)} />
-      {group.previous.length > 0 && (
-        <div className="px-4 pb-3 -mt-1">
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-600 transition"
-          >
-            <ChevronRight className={`w-3 h-3 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`} />
-            {expanded
-              ? 'Hide earlier attempts'
-              : `${group.previous.length} earlier attempt${group.previous.length !== 1 ? 's' : ''}`}
-          </button>
-          <AnimatePresence initial={false}>
-            {expanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: 'easeInOut' }}
-                className="overflow-hidden"
-              >
-                <div className="mt-2 border-l-2 border-slate-200 opacity-75">
-                  {group.previous.map(attempt => (
-                    <AttemptCard
-                      key={attempt.ta_id}
-                      {...makeRowProps(attempt, '–', navigate, test, testId)}
-                    />
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function UserGroupTableRows({ group, groupIndex, navigate, test, testId }: GroupProps) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div>
-      <AttemptTableRow {...makeRowProps(group.latest, groupIndex, navigate, test, testId)} />
-      {group.previous.length > 0 && (
-        <>
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="w-full flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-50/60 transition border-b border-slate-100"
-          >
-            <ChevronRight className={`w-3 h-3 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`} />
-            {expanded
-              ? 'Hide earlier attempts'
-              : `${group.previous.length} earlier attempt${group.previous.length !== 1 ? 's' : ''}`}
-          </button>
-          <AnimatePresence initial={false}>
-            {expanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: 'easeInOut' }}
-                className="overflow-hidden"
-              >
-                <div className="bg-slate-50/50 opacity-80">
-                  {group.previous.map(attempt => (
-                    <AttemptTableRow
-                      key={attempt.ta_id}
-                      {...makeRowProps(attempt, '–', navigate, test, testId)}
-                    />
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </>
-      )}
-    </div>
-  )
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function AdminAttempts() {
+export default function UserAttempts() {
   const { testId } = useParams<{ testId: string }>()
   const location = useLocation()
   const navigate = useNavigate()
+  const { userId } = useUserAuthStore()
   const test = location.state?.test as Test | undefined
 
-  const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
-  const { data, isLoading, isError } = useAttempts(testId ?? '')
+  const { data, isLoading, isError } = useUserAttempts(testId ?? '', userId ?? '')
   const attempts = data?.data ?? []
 
-  const filtered = useMemo(
-    () => attempts.filter(a => a.ta_user_name.toLowerCase().includes(search.toLowerCase())),
-    [attempts, search]
-  )
-
-  const groups = useMemo(() => groupAttemptsByUser(filtered), [filtered])
-
-  const totalPages = Math.ceil(groups.length / ITEMS_PER_PAGE)
-  const paginatedGroups = groups.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
-
-  const handleSearch = (val: string) => { setSearch(val); setPage(1) }
+  const totalPages = Math.ceil(attempts.length / ITEMS_PER_PAGE)
+  const paginated = attempts.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
   const stats = useMemo(() => {
-    if (attempts.length === 0) return { avg: '—', avgTime: '—' }
-    const avgPct = Math.round(
-      attempts.reduce((sum, a) => sum + (a.ta_total_marks > 0 ? a.ta_marks_obtained / a.ta_total_marks : 0), 0)
-      / attempts.length * 100
+    if (attempts.length === 0) return { best: '—', avgTime: '—' }
+    const bestPct = Math.max(
+      ...attempts.map(a => a.ta_total_marks > 0 ? Math.round((a.ta_marks_obtained / a.ta_total_marks) * 100) : 0)
     )
     const avgSec = Math.round(attempts.reduce((s, a) => s + a.ta_time_taken, 0) / attempts.length)
-    return { avg: `${avgPct}%`, avgTime: formatTime(avgSec) }
+    return { best: `${bestPct}%`, avgTime: formatTime(avgSec) }
   }, [attempts])
+
+  const rowProps = (attempt: TestAttempt, idx: number) => ({
+    attempt,
+    index: (page - 1) * ITEMS_PER_PAGE + idx + 1,
+    onView: () => navigate(`/attempts/${attempt.ta_id}`, { state: { attempt, test, testId } }),
+    onResults: attempt.ta_gap_analysis
+      ? () => navigate(`/attempts/${attempt.ta_id}/overall-results`, { state: { attempt, test, testId } })
+      : undefined,
+  })
 
   return (
     <motion.div
@@ -459,14 +284,14 @@ export default function AdminAttempts() {
       <header className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-3">
           <button
-            onClick={() => navigate(`/admin/test/${testId}`, { state: { test } })}
+            onClick={() => navigate('/test')}
             className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">
             <p className="text-xs text-slate-400 leading-none truncate">{test?.ot_name ?? 'Test'}</p>
-            <p className="text-sm font-semibold text-slate-800">Attempts</p>
+            <p className="text-sm font-semibold text-slate-800">My Attempts</p>
           </div>
         </div>
       </header>
@@ -475,86 +300,53 @@ export default function AdminAttempts() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatCard icon={<Users className="w-4 h-4 text-blue-500" />} label="Total Attempts" value={isLoading ? '…' : String(attempts.length)} />
-          <StatCard icon={<TrendingUp className="w-4 h-4 text-emerald-500" />} label="Avg Score" value={isLoading ? '…' : stats.avg} />
+          <StatCard icon={<TrendingUp className="w-4 h-4 text-blue-500" />} label="Total Attempts" value={isLoading ? '…' : String(attempts.length)} />
+          <StatCard icon={<Award className="w-4 h-4 text-emerald-500" />} label="Best Score" value={isLoading ? '…' : stats.best} />
           <StatCard icon={<Clock className="w-4 h-4 text-amber-500" />} label="Avg Time" value={isLoading ? '…' : stats.avgTime} />
         </div>
 
-        {/* Search */}
-        <div className="flex items-center gap-3">
-          <div className="relative max-w-sm flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <input
-              value={search}
-              onChange={e => handleSearch(e.target.value)}
-              placeholder="Search by user name…"
-              className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
-            />
-          </div>
-          {!isLoading && (
-            <p className="text-sm text-slate-500 shrink-0">
-              <span className="font-medium text-slate-700">{groups.length}</span> user{groups.length !== 1 ? 's' : ''}
-              {filtered.length !== groups.length && (
-                <span className="text-slate-400"> · {filtered.length} total</span>
-              )}
-            </p>
-          )}
-        </div>
+        {/* Count */}
+        {!isLoading && (
+          <p className="text-sm text-slate-500">
+            <span className="font-medium text-slate-700">{attempts.length}</span> attempt{attempts.length !== 1 ? 's' : ''}
+          </p>
+        )}
 
-        {/* ── Mobile cards (< md) ── */}
+        {/* Mobile cards (< md) */}
         <div className="md:hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           {isLoading ? (
-            Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} />)
+            Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
           ) : isError ? (
             <div className="py-16 text-center text-slate-500 text-sm">Failed to load attempts</div>
-          ) : groups.length === 0 ? (
-            <div className="py-16 text-center text-slate-400 text-sm">
-              {search ? 'No attempts match your search.' : 'No attempts yet for this test.'}
-            </div>
+          ) : attempts.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 text-sm">You have not attempted this test yet.</div>
           ) : (
-            paginatedGroups.map((group, idx) => (
-              <UserGroupCard
-                key={group.userId}
-                group={group}
-                groupIndex={(page - 1) * ITEMS_PER_PAGE + idx + 1}
-                navigate={navigate}
-                test={test}
-                testId={testId}
-              />
+            paginated.map((attempt, idx) => (
+              <AttemptCard key={attempt.ta_id} {...rowProps(attempt, idx)} />
             ))
           )}
         </div>
 
-        {/* ── Desktop table (≥ md) ── */}
+        {/* Desktop table (≥ md) */}
         <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="grid grid-cols-[2rem_1fr_10rem_7rem_6rem_7rem_10rem] gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <div className="grid grid-cols-[2rem_10rem_7rem_6rem_6rem_auto] gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
             <span>#</span>
-            <span>User</span>
             <span>Score</span>
             <span>Questions</span>
             <span>Time</span>
             <span>Date</span>
-            <span className="text-center">Actions</span>
+            <span className="text-right">Actions</span>
           </div>
 
           {isLoading ? (
-            Array.from({ length: 6 }).map((_, i) => <TableRowSkeleton key={i} />)
+            Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} />)
           ) : isError ? (
             <div className="py-20 text-center text-slate-500 text-sm">Failed to load attempts</div>
-          ) : groups.length === 0 ? (
-            <div className="py-20 text-center text-slate-400 text-sm">
-              {search ? 'No attempts match your search.' : 'No attempts yet for this test.'}
-            </div>
+          ) : attempts.length === 0 ? (
+            <div className="py-20 text-center text-slate-400 text-sm">You have not attempted this test yet.</div>
           ) : (
-            paginatedGroups.map((group, idx) => (
-              <UserGroupTableRows
-                key={group.userId}
-                group={group}
-                groupIndex={(page - 1) * ITEMS_PER_PAGE + idx + 1}
-                navigate={navigate}
-                test={test}
-                testId={testId}
-              />
+            paginated.map((attempt, idx) => (
+              <AttemptTableRow key={attempt.ta_id} {...rowProps(attempt, idx)} />
             ))
           )}
         </div>

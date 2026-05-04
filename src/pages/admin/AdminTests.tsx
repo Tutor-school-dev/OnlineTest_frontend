@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { GraduationCap, Search, LogOut, ChevronRight, BookOpen, Clock } from 'lucide-react'
+import { GraduationCap, Search, LogOut, ChevronRight, BookOpen, Clock, Users } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAdminTests } from '@/hooks/useAdminTests'
 import { useAuthStore } from '@/stores/auth.store'
@@ -81,8 +81,19 @@ function TestCard({ test, index }: { test: Test; index: number }) {
         </span>
       </div>
 
-      <div className="mt-auto flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium bg-gradient-to-r from-blue-600 to-emerald-500 text-white hover:from-blue-700 hover:to-emerald-600 transition-all shadow-sm">
-        Manage Test <ChevronRight className="w-4 h-4" />
+      <div className="mt-auto flex gap-2">
+        <div className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium bg-gradient-to-r from-blue-600 to-emerald-500 text-white hover:from-blue-700 hover:to-emerald-600 transition-all shadow-sm">
+          Manage Test <ChevronRight className="w-4 h-4" />
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            navigate(`/admin/test/${test.ot_id}/attempts`)
+          }}
+          className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all shadow-sm"
+        >
+          <Users className="w-4 h-4" /> Attempts
+        </button>
       </div>
     </motion.div>
   )

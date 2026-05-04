@@ -5,7 +5,13 @@
       "Bash(npx tsc *)",
       "Bash(node -e \"require\\('./node_modules/framer-motion/package.json'\\)\")",
       "Bash(node -e \"['react-router-dom','sonner','axios'].forEach\\(p => { try { require\\('./node_modules/'+p+'/package.json'\\); console.log\\(p+': ok'\\) } catch { console.log\\(p+': MISSING'\\) } }\\)\")",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(dir C:UsersmadanOneDriveDesktopworkot_Frontendsrcpagesadmin *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\madan\\\\OneDrive\\\\Desktop\\\\work\\\\backend\" -Recurse -Filter \"*.go\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\madan\\\\OneDrive\\\\Desktop\\\\work\\\\ot_Frontend\\\\src\" -Recurse -Type f)",
+      "Bash(findstr /R \"pages.*\\\\.tsx$\")",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ]
   }
 }

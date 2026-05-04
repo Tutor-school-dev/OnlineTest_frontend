@@ -313,12 +313,14 @@ function DagView({
   dagId,
   nodeGapMap = EMPTY_GAP_MAP,
   focusedNodeId = null,
+  variant = 'admin',
 }: {
   dagId: string
   nodeGapMap?: Map<string, NodeGap>
   focusedNodeId?: string | null
+  variant?: 'admin' | 'user'
 }) {
-  const { data, isLoading, isError } = useDag(dagId)
+  const { data, isLoading, isError } = useDag(dagId, variant)
 
   const { rfNodes, rfEdges } = useMemo(() => {
     const rawNodes = data?.nodes ?? []
@@ -380,13 +382,15 @@ function CombinedView({
   userDagId,
   questionDagId,
   nodeGapMap,
+  variant = 'admin',
 }: {
   userDagId: string
   questionDagId: string
   nodeGapMap: Map<string, NodeGap>
+  variant?: 'admin' | 'user'
 }) {
-  const { data: userData,     isLoading: userLoading,     isError: userError     } = useDag(userDagId)
-  const { data: questionData, isLoading: questionLoading, isError: questionError } = useDag(questionDagId)
+  const { data: userData,     isLoading: userLoading,     isError: userError     } = useDag(userDagId, variant)
+  const { data: questionData, isLoading: questionLoading, isError: questionError } = useDag(questionDagId, variant)
 
   const { rfNodes, rfEdges } = useMemo(() => {
     const userNodes     = userData?.nodes     ?? []
@@ -800,7 +804,8 @@ export function GraphModal({
   title,
   defaultTab,
   onClose,
-}: AnalysisTarget & { onClose: () => void }) {
+  variant = 'admin',
+}: AnalysisTarget & { onClose: () => void; variant?: 'admin' | 'user' }) {
   const available: Record<AnalysisTab, boolean> = {
     overview:  !!userDagId && !!questionDagId,
     user:      !!userDagId,
@@ -816,10 +821,10 @@ export function GraphModal({
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null)
 
   // Fetch gap + both DAGs at modal level (for cross-tab sharing + prefetch)
-  const { data: gapApiData, isLoading: gapLoading, isError: gapError } = useGapAnalysis(gapId ?? null)
-  const { data: questionDagData } = useDag(questionDagId ?? null)
+  const { data: gapApiData, isLoading: gapLoading, isError: gapError } = useGapAnalysis(gapId ?? null, variant)
+  const { data: questionDagData } = useDag(questionDagId ?? null, variant)
   // Prefetch user DAG so Overview loads instantly
-  useDag(userDagId ?? null)
+  useDag(userDagId ?? null, variant)
 
   const parsedGap = useMemo<GapAnalysisResult | null>(() => {
     const raw = Array.isArray(gapApiData?.data) ? gapApiData.data[0] : null
@@ -922,13 +927,14 @@ export function GraphModal({
               userDagId={userDagId}
               questionDagId={questionDagId}
               nodeGapMap={nodeGapMap}
+              variant={variant}
             />
           )}
           {tab === 'user' && userDagId && (
-            <DagView dagId={userDagId} />
+            <DagView dagId={userDagId} variant={variant} />
           )}
           {tab === 'question' && questionDagId && (
-            <DagView dagId={questionDagId} nodeGapMap={nodeGapMap} focusedNodeId={focusedNodeId} />
+            <DagView dagId={questionDagId} nodeGapMap={nodeGapMap} focusedNodeId={focusedNodeId} variant={variant} />
           )}
           {tab === 'gap' && (
             <GapView

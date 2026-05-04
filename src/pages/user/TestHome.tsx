@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCookies } from 'react-cookie'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Clock, BookOpen, Search, ChevronRight, GraduationCap, LogOut } from 'lucide-react'
+import { Clock, BookOpen, Search, ChevronRight, GraduationCap, LogOut, Users } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTests } from '@/hooks/useTests'
 import { useUserAuthStore } from '@/stores/user-auth.store'
@@ -92,18 +92,26 @@ function TestCard({ test, index }: { test: Test; index: number }) {
       </div>
 
       {/* CTA */}
-      <button
-        disabled={!canStart}
-        onClick={() => canStart && navigate(`/test/${test.ot_id}`, { state: { test } })}
-        className={`mt-auto flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all ${
-          canStart
-            ? 'bg-gradient-to-r from-blue-600 to-emerald-500 text-white hover:from-blue-700 hover:to-emerald-600 shadow-sm hover:shadow'
-            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-        }`}
-      >
-        {ctaLabel}
-        {canStart && <ChevronRight className="w-4 h-4" />}
-      </button>
+      <div className="mt-auto flex gap-2">
+        <button
+          disabled={!canStart}
+          onClick={() => canStart && navigate(`/test/${test.ot_id}`, { state: { test } })}
+          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all ${
+            canStart
+              ? 'bg-gradient-to-r from-blue-600 to-emerald-500 text-white hover:from-blue-700 hover:to-emerald-600 shadow-sm hover:shadow'
+              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+          }`}
+        >
+          {ctaLabel}
+          {canStart && <ChevronRight className="w-4 h-4" />}
+        </button>
+        <button
+          onClick={() => navigate(`/test/${test.ot_id}/attempts`, { state: { test } })}
+          className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all shadow-sm"
+        >
+          <Users className="w-4 h-4" /> Attempts
+        </button>
+      </div>
     </motion.div>
   )
 }

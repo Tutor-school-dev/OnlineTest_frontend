@@ -11,6 +11,9 @@ import AdminTestDetail from './pages/admin/AdminTestDetail'
 import AdminAttempts from './pages/admin/AdminAttempts'
 import AdminAttemptDetail from './pages/admin/AdminAttemptDetail'
 import AdminOverallResults from './pages/admin/AdminOverallResults'
+import UserAttempts from './pages/user/UserAttempts'
+import UserAttemptDetail from './pages/user/UserAttemptDetail'
+import UserOverallResults from './pages/user/UserOverallResults'
 import AdminRoute from './router/AdminRoute'
 import UserRoute from './router/UserRoute'
 
@@ -23,6 +26,9 @@ function AnimatedRoutes() {
         <Route path='/' element={<UserLogin />} />
         <Route path='/test' element={<UserRoute><TestHome /></UserRoute>} />
         <Route path='/test/:testId' element={<UserRoute><TakeTest /></UserRoute>} />
+        <Route path='/test/:testId/attempts' element={<UserRoute><UserAttempts /></UserRoute>} />
+        <Route path='/attempts/:attemptId' element={<UserRoute><UserAttemptDetail /></UserRoute>} />
+        <Route path='/attempts/:attemptId/overall-results' element={<UserRoute><UserOverallResults /></UserRoute>} />
         <Route path='/admin/login' element={<AdminLogin />} />
         <Route path='/admin' element={<AdminRoute><AdminTests /></AdminRoute>} />
         <Route path='/admin/test/:testId' element={<AdminRoute><AdminTestDetail /></AdminRoute>} />
